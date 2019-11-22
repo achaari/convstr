@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+
 typedef unsigned char acbyte;
 
 static void actrns_encode_bytes(const acbyte *valarrp, int mlen, int *idvxp, int *valxp, int *idvlxp)
@@ -88,7 +89,7 @@ static void actrns_encode_strval(const char *str, int **idxarp, int *maxlvp)
 
     char crnd = accmpr_get_randc();
 
-    sprintf(codes, "%c:%d:%c%c%c:%s:%c", crnd, strlen(str), str[strlen(str) - 1], crnd, str[0], str,  crnd);
+    sprintf(codes, "%c:%d:%s:%c", crnd, strlen(str), str,  crnd);
 
     actrns_encode_strtab((const acbyte*)codes, strlen(codes), idxarp, maxlvp);
 
@@ -96,11 +97,48 @@ static void actrns_encode_strval(const char *str, int **idxarp, int *maxlvp)
     codes = NULL;
 }
 
+static int actrns_count_digit(int intref)
+{
+    char idxs[30];
+    sprintf(idxs, "%d", intref);
+    return strlen(idxs);
+}
+
+
 static void actrns_decode_strval(int *arrvalxp, int tablen, char *valstrp)
 {
+    char *codes = calloc(tablen * 2, sizeof(char));
+
     int idstdx = 0;
 
-    actrns_decode_strtab(arrvalxp, tablen, valstrp, &idstdx);
+    *valstrp = '\0';
+
+    actrns_decode_strtab(arrvalxp, tablen, codes, &idstdx);
+
+    char cmdchr = codes[0];
+    if (cmdchr != codes[strlen(codes) - 1] || codes[1] != ':' || codes[strlen(codes) - 2] != ':') {
+	return;
+    }
+
+    int cdlen = strlen(codes);
+    int stlen = atoi(codes + 2);
+    int nbdgt = actrns_count_digit(stlen);
+
+    char *codecs = codes + 3 + nbdgt;
+
+    if (stlen != (cdlen - nbdgt - 5)) {
+	return;
+    }
+    else if (codecs[stlen] != ':' || *(codecs - 1) != ':' || codecs[stlen + 1] != cmdchr || codecs[stlen + 2] != '\0') {
+	return;
+    }
+
+    codecs[stlen] = '\0';
+
+    strcpy(valstrp, codecs);
+
+    free(codes);
+    codes = NULL;    
 }
 
 #define posex  33 
