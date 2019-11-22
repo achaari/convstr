@@ -50,10 +50,8 @@ static void actrns_decode_bytes(const int *valxp, int mlen, int *idvxp, acbyte *
 
 }
 
-static void actrns_encode_strtab(const char *valstrp, int **arrvalxp, int *idvalp)
+static void actrns_encode_strtab(const char *valstrp, int stlen, int **arrvalxp, int *idvalp)
 {
-    int stlen = strlen(valstrp);
-    
     *arrvalxp = calloc(2 * stlen, sizeof(int));
 
     int idx = 0;
@@ -63,28 +61,145 @@ static void actrns_encode_strtab(const char *valstrp, int **arrvalxp, int *idval
     }
 }
 
-static void actrns_decode_strtab(int *arrvalxp, int tablen, const char *valstrp, int *idstrp)
+static void actrns_decode_strtab(int *arrvalxp, int tablen, char *valstrp, int *idstrp)
 {
     int idx = 0;
     while (idx < tablen) {
 	actrns_decode_bytes(arrvalxp, tablen, &idx, valstrp, idstrp);
     }
+
+    valstrp[*idstrp] = '\0';
 }
 
-static void actrns_enocde_string(const char *valstrp, char *outstrp)
+static const char *vrxtab = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+static char accmpr_get_randc()
+{
+    srand(time(0));
+
+    return vrxtab[rand() % 62];
+}
+
+static void actrns_encode_strval(const char *str, int **idxarp, int *maxlvp)
+{
+    char *codes;
+
+    codes = calloc(strlen(str) + 30, sizeof(char));
+
+    char crnd = accmpr_get_randc();
+
+    sprintf(codes, "%c:%d:%c%c%c:%s:%c", crnd, strlen(str), str[strlen(str) - 1], crnd, str[0], str,  crnd);
+
+    actrns_encode_strtab((const acbyte*)codes, strlen(codes), idxarp, maxlvp);
+
+    free(codes);
+    codes = NULL;
+}
+
+static void actrns_decode_strval(int *arrvalxp, int tablen, char *valstrp)
+{
+    int idstdx = 0;
+
+    actrns_decode_strtab(arrvalxp, tablen, valstrp, &idstdx);
+}
+
+#define posex  33 
+#define posvx  (posex + 11)	
+#define lista  200
+
+static void actrns_encode_inttab(int *lnarr, int lnx, char *txt)
+{
+    int idx = 0, lsd, lvd;
+    char buff[10];
+
+    *txt = '\0';
+
+    while (idx <= lnx) {
+	if ((char)lnarr[idx] == '\0') {
+	    sprintf(buff, "%c", (acbyte)posex);
+	}
+	else {
+	    lsd = lnarr[idx] / lista;
+	    lvd = lnarr[idx] % lista + posvx;
+
+	    if (lsd) {
+		sprintf(buff, "%c%c", (acbyte)(lsd + posex), (acbyte)lvd);
+	    }
+	    else {
+		sprintf(buff, "%c", (acbyte)lvd);
+	    }
+	}
+
+	strcat(txt, buff);
+
+	idx++;
+    }
+}
+
+static void actrns_decode_inttab(const char *str, int *maxlvp, int **idxarp)
+{
+    int idx = 0, lvd = 0, lnx = strlen(str);
+    acbyte lvx;
+
+    *idxarp = calloc(lnx, sizeof(int));
+
+    while (idx < lnx) {
+	lvx = str[idx];
+
+	if (lvx < posex) {
+	    /* Sould not happen */
+	    free(*idxarp);
+	    *idxarp = NULL;
+	    *maxlvp = 0;
+	    break;
+	}
+	if (lvx == posex) {
+	    lvd = (int)'\0';
+	}
+	else if (lvx < posvx) {
+	    lvd = ((int)lvx - posex) * lista + (int)(acbyte)str[++idx] - posvx;
+	}
+	else {
+	    lvd = (int)(acbyte)lvx - posvx;
+	}
+
+	(*idxarp)[(*maxlvp)++] = lvd;
+	++idx;
+    }
+}
+
+static void actrns_encode_string(const char *valstrp, char *outstrp)
 {
     int *arrvalxp = NULL;
     int idvalx = 0;
-    actrns_encode_strtab(valstrp, &arrvalxp, &idvalx);
+    actrns_encode_strval(valstrp, &arrvalxp, &idvalx);
 
-    int idstdx = 0;
-    actrns_decode_strtab(arrvalxp, idvalx, outstrp, &idstdx);
+    actrns_encode_inttab(arrvalxp, idvalx, outstrp);
+
+    free(arrvalxp);
+    arrvalxp = NULL;
 }
+
+static void actrns_decode_string(const char *valstrp, char *outstrp)
+{
+    int *arrvalxp = NULL;
+    int idvalx = 0;
+
+    actrns_decode_inttab(valstrp, &idvalx, &arrvalxp);
+
+    actrns_decode_strval(arrvalxp, idvalx - 1, outstrp);
+
+    free(arrvalxp);
+    arrvalxp = NULL;
+}
+
 
 int main()
 {
     const char *charx = "this is my first string tests !!!";
-    char txt[500];
+    char txt[500], dectxt[500];
 
-    actrns_enocde_string(charx, txt);
+    actrns_encode_string(charx, txt);
+
+    actrns_decode_string(txt, dectxt);
 }
