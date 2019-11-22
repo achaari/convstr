@@ -72,24 +72,13 @@ static void actrns_decode_strtab(int *arrvalxp, int tablen, char *valstrp, int *
     valstrp[*idstrp] = '\0';
 }
 
-static const char *vrxtab = "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
-
-static char accmpr_get_randc()
-{
-    srand(time(0));
-
-    return vrxtab[rand() % 62];
-}
-
 static void actrns_encode_strval(const char *str, int **idxarp, int *maxlvp)
 {
     char *codes;
 
     codes = calloc(strlen(str) + 30, sizeof(char));
 
-    char crnd = accmpr_get_randc();
-
-    sprintf(codes, "%c:%d:%s:%c", crnd, strlen(str), str,  crnd);
+    sprintf(codes, "%d:%s", strlen(str), str);
 
     actrns_encode_strtab((const acbyte*)codes, strlen(codes), idxarp, maxlvp);
 
@@ -115,24 +104,16 @@ static void actrns_decode_strval(int *arrvalxp, int tablen, char *valstrp)
 
     actrns_decode_strtab(arrvalxp, tablen, codes, &idstdx);
 
-    char cmdchr = codes[0];
-    if (cmdchr != codes[strlen(codes) - 1] || codes[1] != ':' || codes[strlen(codes) - 2] != ':') {
-	return;
-    }
-
     int cdlen = strlen(codes);
-    int stlen = atoi(codes + 2);
+    int stlen = atoi(codes);
     int nbdgt = actrns_count_digit(stlen);
-
-    char *codecs = codes + 3 + nbdgt;
-
-    if (stlen != (cdlen - nbdgt - 5)) {
-	return;
-    }
-    else if (codecs[stlen] != ':' || *(codecs - 1) != ':' || codecs[stlen + 1] != cmdchr || codecs[stlen + 2] != '\0') {
+    
+    if (codes[nbdgt] != ':' || stlen != (cdlen - nbdgt - 1)) {
 	return;
     }
 
+    char *codecs = codes + nbdgt + 1;
+    
     codecs[stlen] = '\0';
 
     strcpy(valstrp, codecs);
@@ -206,7 +187,7 @@ static void actrns_decode_inttab(const char *str, int *maxlvp, int **idxarp)
     }
 }
 
-static void actrns_encode_string(const char *valstrp, char *outstrp)
+void actrns_encode_string(const char *valstrp, char *outstrp)
 {
     int *arrvalxp = NULL;
     int idvalx = 0;
@@ -218,7 +199,7 @@ static void actrns_encode_string(const char *valstrp, char *outstrp)
     arrvalxp = NULL;
 }
 
-static void actrns_decode_string(const char *valstrp, char *outstrp)
+void actrns_decode_string(const char *valstrp, char *outstrp)
 {
     int *arrvalxp = NULL;
     int idvalx = 0;
